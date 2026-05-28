@@ -49,6 +49,15 @@ const App = (() => {
 	let followMode = false;   // режим следования за позицией
 	let btnCenter = null;
 
+    // Симуляция
+	let simulationMode = false;
+	let simInterval = null;
+	let simLat = 48.5277;    // Волгоград
+	let simLon = 44.5588;
+	let simHeading = 0;
+	let simStep = 0.00001;   // ~1 метр
+	let btnSim = null;
+
     // Темы
     const themes = ['theme-indoor', 'theme-light', 'theme-dark-contrast'];
     let currentTheme = 0;
@@ -103,6 +112,26 @@ const App = (() => {
 		const savedTheme = parseInt(localStorage.getItem('theme') || '0');
 		currentTheme = savedTheme;
 		if (currentTheme > 0) document.documentElement.classList.add(themes[currentTheme]);
+		
+		// После получения остальных кнопок
+		btnSim = document.createElement('button');
+		btnSim.textContent = '🎲 Симуляция';
+		btnSim.className = 'top-btn';
+		btnSim.style.background = '#6c757d';
+		btnSim.style.color = '#fff';
+		btnSim.style.marginLeft = '8px';
+		btnSim.onclick = () => {
+			if (simulationMode) {
+				stopSimulation();
+				btnSim.textContent = '🎲 Симуляция';
+				btnSim.style.background = '#6c757d';
+			} else {
+				startSimulation();
+				btnSim.textContent = '⏹ Стоп';
+				btnSim.style.background = '#dc3545';
+			}
+		};
+		document.getElementById('top-bar').appendChild(btnSim);
 
 		resizeCanvas();
 		window.addEventListener('resize', resizeCanvas);
@@ -124,6 +153,7 @@ const App = (() => {
 		try {
 			setStatus('Подключение...');
 			btnConnection.disabled = true;
+			if (btnSim) btnSim.disabled = true;
 
 			serialBridge = new SerialBridge();
 			serialBridge.onMessage = onSerialMessage;
@@ -142,6 +172,7 @@ const App = (() => {
 			setStatus('Подключено (' + baudRate + ')');
 		} catch (err) {
 			btnConnection.disabled = false;  // ← И ЗДЕСЬ ТОЖЕ
+			if (btnSim) btnSim.disabled = false; 
 			if (err.name === 'NotFoundError') {
 				setStatus('Подключение отменено');
 			} else {
@@ -158,10 +189,17 @@ const App = (() => {
         onSerialClose();
     }
 
-    function toggleConnection() {
-        if (isConnected) disconnectSerial();
-        else connectSerial();
-    }
+	function toggleConnection() {
+
+		if (isConnected) {
+			disconnectSerial();
+		} else {
+			if (simulationMode) {
+				stopSimulation();  // stopSimulation сам обновит кнопку
+			}
+			connectSerial();
+		}
+	}
 
 	function toggleCenter() {
 		followMode = !followMode;
@@ -230,6 +268,7 @@ const App = (() => {
 		btnConnection.textContent = '📡 Подключить';
 		btnConnection.className = 'top-btn btn-connect';
 		btnConnection.disabled = false;
+		if (btnSim) btnSim.disabled = false;
 		
 		// Очищаем таймстемпы
 		rmcTimestamps = [];
@@ -246,6 +285,88 @@ const App = (() => {
 		
 		setStatus('Не подключено');
 	}
+
+	function startSimulation() {
+  
+        if (simulationMode || isConnected) return;
+		simulationMode = true;
+		
+		btnConnection.disabled = true;
+		if (btnSim) {
+				btnSim.textContent = '⏹ Стоп';
+				btnSim.style.background = '#dc3545';
+			}
+		
+		anchorLat = simLat;
+		anchorLon = simLon;
+		track = [{ x: 0, y: 0, lat: simLat, lon: simLon, ts: Date.now() }];
+		headingHistory = [];
+		jumpsCount = 0;
+		lastHeading = NaN;
+		
+		setStatus('Симуляция запущена');
+		
+		simInterval = setInterval(() => {
+			// Случайное блуждание с трендом
+			const angle = Math.random() * Math.PI * 2;
+			const dist = simStep * (0.5 + Math.random() * 1.5);
+			
+			simLat += Math.cos(angle) * dist;
+			simLon += Math.sin(angle) * dist;
+			simHeading += (Math.random() - 0.5) * 10; // ±5°
+			if (simHeading < 0) simHeading += 360;
+			if (simHeading >= 360) simHeading -= 360;
+			
+			gnssData.lat = simLat;
+			gnssData.lon = simLon;
+			gnssData.heading = simHeading;
+			gnssData.speed = dist * 10; // 10 Гц
+			gnssData.course = simHeading + (Math.random() - 0.5) * 5;
+			gnssData.numSV = 26;
+			gnssData.hdop = 0.6 + Math.random() * 0.2;
+			gnssData.fixType = 4; // RTK
+			
+			// Добавляем вручную для статистики частоты
+			rmcTimestamps.push(Date.now());
+			hdtTimestamps.push(Date.now());
+			if (rmcTimestamps.length > 100) rmcTimestamps.shift();
+			if (hdtTimestamps.length > 100) hdtTimestamps.shift();
+			
+			addTrackPoint(simLat, simLon);
+			updateHeadingStats(simHeading);
+			
+			// Автоцентрирование если включено
+			if (followMode) {
+				const ant = getAntennaXY();
+				offsetX = canvas.width / 2 - ant.x * scale;
+				offsetY = canvas.height / 2 + ant.y * scale;
+			}
+		}, 100); // 10 Гц
+	}
+
+	function stopSimulation() {
+		
+		if (!simulationMode) return;
+		simulationMode = false;
+		if (simInterval) {
+			clearInterval(simInterval);
+			simInterval = null;
+		}
+		
+		btnConnection.disabled = false;
+		if (btnSim) {
+			btnSim.textContent = '🎲 Симуляция';
+			btnSim.style.background = '#6c757d';
+		}
+		
+		gnssData = { lat: NaN, lon: NaN, heading: NaN, speed: NaN, course: NaN, numSV: 0, hdop: NaN, fixType: 0 };
+		rmcTimestamps = [];
+		hdtTimestamps = [];
+		
+		setStatus('Симуляция остановлена');
+	}
+
+
 
     // ========== ТРЕК ==========
     function addTrackPoint(lat, lon) {
@@ -395,6 +516,10 @@ const App = (() => {
 		// Сбрасываем bbox (начнёт заполняться заново)
 		bbox.latMin = Infinity; bbox.latMax = -Infinity;
 		bbox.lonMin = Infinity; bbox.lonMax = -Infinity;
+		
+		if (simulationMode) {
+			track = [{ x: 0, y: 0, lat: simLat, lon: simLon, ts: Date.now() }];
+    }
     }
 
 	function calcMessageRate() {
@@ -514,7 +639,6 @@ const App = (() => {
 		downloadBlob(kml, 'application/vnd.google-earth.kml+xml', `ugnss_track_${new Date().toISOString().slice(0,19).replace(/[:.]/g,'-')}.kml`);
 	}
 
-
     function downloadBlob(content, type, filename) {
         const blob = new Blob([content], { type });
         const url = URL.createObjectURL(blob);
@@ -551,6 +675,7 @@ const App = (() => {
         if (!ctx || canvas.width === 0) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGrid();
+		drawStatsOverlay();
         drawTrack();
         drawPosition();
         drawScaleBar();
@@ -704,6 +829,161 @@ const App = (() => {
         ctx.font = 'bold 9px Arial'; ctx.fillStyle = color; ctx.textAlign = 'center';
         ctx.fillText(dm >= 1000 ? `${(dm/1000).toFixed(1)} км` : `${Math.round(dm)} м`, bx + dp / 2, by - 8);
     }
+
+    function drawStatsOverlay() {
+		if (track.length < 5) return;
+		
+		// Центроида облака
+		let cx = 0, cy = 0;
+		const windowPoints = track.slice(-statsWindow).filter(p => !isNaN(p.x));
+		if (windowPoints.length < 5) return;
+		
+		windowPoints.forEach(p => { cx += p.x; cy += p.y; });
+		cx /= windowPoints.length;
+		cy /= windowPoints.length;
+		
+		const sx = offsetX + cx * scale;
+		const sy = offsetY - cy * scale;
+		
+		// Считаем DRMS
+		let sx2 = 0, sy2 = 0;
+		windowPoints.forEach(p => {
+			sx2 += (p.x - cx) ** 2;
+			sy2 += (p.y - cy) ** 2;
+		});
+		const stdX = Math.sqrt(sx2 / windowPoints.length);
+		const stdY = Math.sqrt(sy2 / windowPoints.length);
+		const drms = Math.sqrt(stdX * stdX + stdY * stdY);
+		
+		// Круги DRMS
+		ctx.save();
+		ctx.globalAlpha = 0.3;
+		
+		// 3DRMS (самый большой, самый прозрачный)
+		ctx.beginPath();
+		ctx.arc(sx, sy, drms * 3 * scale, 0, Math.PI * 2);
+		ctx.fillStyle = 'rgba(255, 100, 100, 0.1)';
+		ctx.fill();
+		ctx.strokeStyle = 'rgba(255, 100, 100, 0.3)';
+		ctx.lineWidth = 1;
+		ctx.setLineDash([4, 4]);
+		ctx.stroke();
+		ctx.setLineDash([]);
+		
+		// 2DRMS
+		ctx.beginPath();
+		ctx.arc(sx, sy, drms * 2 * scale, 0, Math.PI * 2);
+		ctx.fillStyle = 'rgba(255, 200, 50, 0.15)';
+		ctx.fill();
+		ctx.strokeStyle = 'rgba(255, 200, 50, 0.5)';
+		ctx.lineWidth = 1.5;
+		ctx.setLineDash([6, 3]);
+		ctx.stroke();
+		ctx.setLineDash([]);
+		
+		// DRMS (самый малый, самый насыщенный)
+		ctx.beginPath();
+		ctx.arc(sx, sy, drms * scale, 0, Math.PI * 2);
+		ctx.fillStyle = 'rgba(0, 255, 150, 0.2)';
+		ctx.fill();
+		ctx.strokeStyle = 'rgba(0, 255, 150, 0.7)';
+		ctx.lineWidth = 2;
+		ctx.stroke();
+		
+		ctx.globalAlpha = 1;
+		
+		// Центроида — крестик
+		const crossSize = 8;
+		ctx.beginPath();
+		ctx.moveTo(sx - crossSize, sy);
+		ctx.lineTo(sx + crossSize, sy);
+		ctx.moveTo(sx, sy - crossSize);
+		ctx.lineTo(sx, sy + crossSize);
+		ctx.strokeStyle = '#fff';
+		ctx.lineWidth = 2;
+		ctx.stroke();
+		
+		// Подпись DRMS
+		ctx.fillStyle = 'rgba(0, 255, 150, 0.9)';
+		ctx.font = 'bold 10px Arial';
+		ctx.textAlign = 'left';
+		ctx.fillText('DRMS=' + drms.toFixed(2) + 'м', sx + drms * scale + 5, sy - 5);
+		
+		ctx.restore();
+		
+		// RMS азимута — широкий сектор на отлёте от треугольника
+		if (!isNaN(gnssData.heading)) {
+			const hdgWindow = headingHistory.slice(-statsWindow);
+			if (hdgWindow.length >= 5) {
+				let sum = 0;
+				for (let i = 1; i < hdgWindow.length; i++) {
+					let diff = Math.abs(hdgWindow[i] - hdgWindow[i-1]);
+					if (diff > 180) diff = 360 - diff;
+					sum += diff * diff;
+				}
+				const hdgRms = Math.sqrt(sum / (hdgWindow.length - 1));
+
+				if (hdgRms > 0.1 && hdgRms < 180) {
+					const ant = getAntennaXY();
+					const ax = offsetX + ant.x * scale;
+					const ay = offsetY - ant.y * scale;
+					const ang = (gnssData.heading - 90) * Math.PI / 180;
+					const rmsRad = hdgRms * Math.PI / 180;
+					
+					// Сектор на отлёте от треугольника (радиус 40-50 пикселей)
+					const innerR = 35;  // начало сектора (дальше от треугольника)
+					const outerR = 155; // конец сектора
+					
+					ctx.save();
+					ctx.globalAlpha = 0.35;
+					
+					// Заливка сектора
+					ctx.beginPath();
+					ctx.arc(ax, ay, outerR, ang - rmsRad, ang + rmsRad);
+					ctx.arc(ax, ay, innerR, ang + rmsRad, ang - rmsRad, true);
+					ctx.closePath();
+					ctx.fillStyle = 'rgba(255, 80, 80, 0.4)';
+					ctx.fill();
+					
+					// Обводка сектора — толстая яркая
+					ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
+					ctx.lineWidth = 2.5;
+					ctx.beginPath();
+					ctx.arc(ax, ay, outerR, ang - rmsRad, ang + rmsRad);
+					ctx.stroke();
+					ctx.beginPath();
+					ctx.arc(ax, ay, innerR, ang - rmsRad, ang + rmsRad);
+					ctx.stroke();
+					
+					// Линии границ сектора
+					ctx.beginPath();
+					ctx.moveTo(ax + innerR * Math.cos(ang - rmsRad), ay + innerR * Math.sin(ang - rmsRad));
+					ctx.lineTo(ax + outerR * Math.cos(ang - rmsRad), ay + outerR * Math.sin(ang - rmsRad));
+					ctx.moveTo(ax + innerR * Math.cos(ang + rmsRad), ay + innerR * Math.sin(ang + rmsRad));
+					ctx.lineTo(ax + outerR * Math.cos(ang + rmsRad), ay + outerR * Math.sin(ang + rmsRad));
+					ctx.stroke();
+					
+					// Подпись RMS
+					ctx.globalAlpha = 0.9;
+					ctx.fillStyle = '#ff4444';
+					ctx.font = 'bold 11px Arial';
+					ctx.textAlign = 'center';
+					const labelX = ax + outerR * 1.3 * Math.cos(ang);
+					const labelY = ay + outerR * 1.3 * Math.sin(ang);
+					
+					// Фон для подписи
+					const textW = ctx.measureText('RMS=' + hdgRms.toFixed(1) + '°').width;
+					ctx.fillStyle = 'rgba(0,0,0,0.6)';
+					ctx.fillRect(labelX - textW/2 - 4, labelY - 9, textW + 8, 16);
+					
+					ctx.fillStyle = '#ff6666';
+					ctx.fillText('RMS=' + hdgRms.toFixed(1) + '°', labelX, labelY + 1);
+					
+					ctx.restore();
+				}
+			}
+		}
+	}
 
     function updateInfoUI() {
         document.getElementById('gi-lat').textContent = isNaN(gnssData.lat) ? '--' : gnssData.lat.toFixed(6);
