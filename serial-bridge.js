@@ -46,38 +46,19 @@ class SerialBridge {
                 stopBits: 1,
                 parity: 'none',
                 flowControl: 'none',
-                bufferSize: 65536
+                bufferSize: 4096
             });
 			
 			console.log('[SerialBridge] Port opened successfully');
 			
-			
-			/*
 			await this._drainStaleData();
 			console.log('[SerialBridge] Stale data drained');
-			*/
-
+			
             this.isOpen = true;
             this.lineBuffer = '';
             this.readInProgress = false;
             this.writer = this.port.writable.getWriter();
             this.reader = this.port.readable.getReader();
-			
-			let keepReading = 500;
-			while (keepReading > 0) {
-				try {
-					const { done } = this.reader.read();
-					if (done) {
-						keepReading = 0;
-					} else {
-						keepReading = keepReading - 1;
-					}
-				} catch (err) {
-					// Игнорируем типичные ошибки при сбросе: NetworkError, AbortError и т. п.
-					// Они возникают, когда порт закрывается или прерывается чтение
-					keepReading = false;
-				}
-			}
 						
 			console.log('[SerialBridge] Reader and writer initialized');
 			
