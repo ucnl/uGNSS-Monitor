@@ -1,0 +1,161 @@
+<!-- index.html — uGNSSMonitor PWA -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>uGNSS Monitor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- ===== ВЕРХНЯЯ ПАНЕЛЬ ===== -->
+        <div id="top-bar">
+            <div id="connection-indicator" title="Статус соединения"></div>
+            <span id="device-label">GNSS Монитор</span>
+            <span id="status-text">Не подключено</span>
+            
+            <button id="btn-theme" class="top-btn" onclick="App.cycleTheme()" style="background:#555; color:#fff;" title="Тема">🎨</button>
+            <button id="btn-connection" class="top-btn btn-connect" onclick="App.toggleConnection()">📡 Подключить</button>
+            <button id="btn-settings" class="top-btn btn-settings" onclick="App.openSettings()">⚙ Настройки</button>
+			
+			<button id="btn-center" class="top-btn" onclick="App.toggleCenter()" style="background:#6c757d;color:#fff;" title="Центрировать / Следить">⊙</button>
+            
+            <!-- Выпадающая кнопка Экспорт -->
+            <div class="dropdown" style="display:inline-block; position:relative;">
+                <button class="top-btn" onclick="App.toggleDropdown('export-dropdown')" style="background:#20c997; color:#fff;">📤 Экспорт ▾</button>
+                <div id="export-dropdown" class="dropdown-menu" style="display:none; position:absolute; top:100%; right:0; z-index:300; min-width:160px;">
+                    <div class="dropdown-item" onclick="App.exportCSV(); App.closeAllDropdowns();">📊 CSV (трек)</div>
+                    <div class="dropdown-item" onclick="App.exportCSVStats(); App.closeAllDropdowns();">📊 CSV (статистика)</div>
+					<div class="dropdown-item" onclick="App.exportKML(); App.closeAllDropdowns();">🗺 KML</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== КАРТА ===== -->
+        <div id="map-container">
+            <canvas id="map-canvas"></canvas>
+
+            <!-- Информация GNSS -->
+            <div id="gnss-info">
+                <div><span class="gi-label">Широта:</span> <span class="gi-value" id="gi-lat">--</span></div>
+                <div><span class="gi-label">Долгота:</span> <span class="gi-value" id="gi-lon">--</span></div>
+                <div><span class="gi-label">Азимут:</span> <span class="gi-value" id="gi-hdg">--</span>°</div>
+                <div><span class="gi-label">Скорость:</span> <span class="gi-value" id="gi-spd">--</span> м/с</div>
+                <div><span class="gi-label">Курс:</span> <span class="gi-value" id="gi-crs">--</span>°</div>
+				<div><span class="gi-label">Спутников:</span> <span class="gi-value" id="gi-sats">--</span></div>
+				<div><span class="gi-label">HDOP:</span> <span class="gi-value" id="gi-hdop">--</span></div>
+				<div><span class="gi-label">Качество:</span> <span class="gi-value" id="gi-quality">--</span></div>				
+            </div>
+
+            <!-- Шкала -->
+            <div id="scale-bar"></div>
+        </div>
+
+        <!-- ===== ПАНЕЛЬ СТАТИСТИКИ ===== -->
+        <div id="stats-panel">
+            <div class="stats-row">
+                <span class="stats-label">DRMS:</span>
+                <span class="stats-value" id="st-drms">--</span> м
+            </div>
+            <div class="stats-row">
+                <span class="stats-label">2DRMS (95%):</span>
+                <span class="stats-value" id="st-2drms">--</span> м
+            </div>
+            <div class="stats-row">
+                <span class="stats-label">3DRMS (98%):</span>
+                <span class="stats-value" id="st-3drms">--</span> м
+            </div>
+            <div class="stats-row">
+                <span class="stats-label">RMS азимута:</span>
+                <span class="stats-value" id="st-hdg-rms">--</span>°
+            </div>
+            <div class="stats-row">
+                <span class="stats-label">Скачков курса (>30°/с):</span>
+                <span class="stats-value" id="st-jumps">0</span>
+            </div>
+            <div class="stats-row">
+                <span class="stats-label">Точек:</span>
+                <span class="stats-value" id="st-points">0</span>
+            </div>
+            <div class="stats-row">
+                <span class="stats-label">Окно:</span>
+                <input type="number" id="cfg-window" value="60" min="10" max="600" step="10" onchange="App.resetStats()" style="width:60px; padding:2px 4px; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-primary); border-radius:3px; font-size:11px;">
+                <span style="font-size:10px; color:var(--text-secondary);">точек</span>
+            </div>
+			<div class="stats-row">
+				<span class="stats-label">RMC:</span>
+				<span class="stats-value" id="st-rate-rmc">--</span>
+				<span class="stats-label">Гц</span>
+			</div>
+			<div class="stats-row">
+				<span class="stats-label">HDT:</span>
+				<span class="stats-value" id="st-rate-hdt">--</span>
+				<span class="stats-label">Гц</span>
+			</div>
+			<div class="stats-row">
+				<span class="stats-label">GSA:</span>
+				<span class="stats-value" id="st-rate-gsa">--</span>
+				<span class="stats-label">Гц</span>
+			</div>
+			
+			<div class="stats-row">
+				<span class="stats-label">Размах N-S:</span>
+				<span class="stats-value" id="st-extent-ns">--</span>				
+			</div>
+			<div class="stats-row">
+				<span class="stats-label">Размах E-W:</span>
+				<span class="stats-value" id="st-extent-ew">--</span>				
+			</div>
+			
+        </div>
+
+        <!-- ===== FOOTER ===== -->
+        <footer class="footer">
+            <div class="footer-content">
+                <span class="footer-copy">&copy; 2026 UC&NL</span>
+                <span class="footer-desc">uGNSS Monitor</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- ===== МОДАЛЬНОЕ ОКНО НАСТРОЕК ===== -->
+    <div id="settings-overlay">
+        <div id="settings-modal">
+            <div id="settings-header">
+                <h3>⚙ Настройки</h3>
+                <button onclick="App.closeSettings()" title="Закрыть">✕</button>
+            </div>
+            <div id="settings-body">
+                <div class="settings-section">
+                    <h4>📡 GNSS-компас</h4>
+                    <div class="settings-row">
+                        <label>Скорость (бод):</label>
+                        <select id="cfg-gnss-baud" style="flex:1; padding:6px 8px; border:1px solid var(--border-primary); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); font-size:12px;">
+                            <option value="4800">4800</option>
+                            <option value="9600">9600</option>
+                            <option value="19200">19200</option>
+                            <option value="38400" selected>38400</option>
+                            <option value="57600">57600</option>
+                            <option value="115200">115200</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div id="settings-footer">
+                <button class="btn-apply" onclick="App.applySettings()">✓ Применить</button>
+                <button class="btn-close-settings" onclick="App.closeSettings()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== СКРИПТЫ ===== -->
+    <script src="gnss-parser.js"></script>
+    <script src="webview-stub.js"></script>
+    <script src="serial-bridge.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

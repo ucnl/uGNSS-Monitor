@@ -1,0 +1,402 @@
+/* styles.css — uGNSS Monitor PWA */
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root, :root.theme-indoor {
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-tertiary: #0f3460;
+    --bg-card: #0f3460;
+    --bg-input: #0a0a1a;
+    --bg-overlay: rgba(22, 33, 62, 0.95);
+    
+    --border-primary: #0f3460;
+    --border-accent: #e83e8c;
+    --border-success: #28a745;
+    --border-warning: #ffc107;
+    --border-danger: #dc3545;
+    
+    --text-primary: #e0e0e0;
+    --text-secondary: #aaa;
+    --text-muted: #666;
+    --text-accent: #4ec9b0;
+    --text-warning: #ffa500;
+    --text-info: #569cd6;
+    
+    --btn-connect: #28a745;
+    --btn-connect-hover: #218838;
+    --btn-disconnect: #dc3545;
+    --btn-disconnect-hover: #c82333;
+    --btn-settings: #17a2b8;
+    --btn-settings-hover: #138496;
+    
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    --radius: 8px;
+    --radius-sm: 4px;
+    --radius-lg: 12px;
+    --scale-color: #fff;
+}
+
+:root.theme-light {
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e0e0e0;
+    --bg-card: #ffffff;
+    --bg-input: #ffffff;
+    --bg-overlay: rgba(255, 255, 255, 0.95);
+    
+    --border-primary: #cccccc;
+    --border-success: #2e7d32;
+    --border-warning: #f57c00;
+    --border-danger: #c62828;
+    
+    --text-primary: #1a1a1a;
+    --text-secondary: #555555;
+    --text-muted: #888888;
+    --text-accent: #00695c;
+    --text-warning: #e65100;
+    --text-info: #1565c0;
+    
+    --btn-connect: #2e7d32;
+    --btn-connect-hover: #1b5e20;
+    --btn-disconnect: #c62828;
+    --btn-disconnect-hover: #b71c1c;
+    --btn-settings: #00838f;
+    --btn-settings-hover: #006064;
+    
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    --scale-color: #1a1a1a;
+}
+
+:root.theme-dark-contrast {
+    --bg-primary: #000000;
+    --bg-secondary: #0a0a0a;
+    --bg-tertiary: #1a1a1a;
+    --bg-card: #111111;
+    --bg-input: #000000;
+    --bg-overlay: rgba(0, 0, 0, 0.95);
+    
+    --border-primary: #444444;
+    --border-success: #69f0ae;
+    --border-warning: #ffd740;
+    --border-danger: #ff5252;
+    
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --text-muted: #888888;
+    --text-accent: #69f0ae;
+    --text-warning: #ffd740;
+    --text-info: #40c4ff;
+    
+    --btn-connect: #69f0ae;
+    --btn-connect-hover: #00e676;
+    --btn-disconnect: #ff5252;
+    --btn-disconnect-hover: #ff1744;
+    --btn-settings: #64ffda;
+    --btn-settings-hover: #1de9b6;
+    
+    --shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
+    --scale-color: #ffffff;
+}
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+}
+
+/* Верхняя панель */
+#top-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-primary);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    min-height: 44px;
+    z-index: 50;
+}
+
+#connection-indicator {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--border-danger);
+    flex-shrink: 0;
+    transition: background 0.3s;
+}
+#connection-indicator.connected { background: var(--border-success); }
+
+#device-label {
+    font-weight: 700;
+    font-size: 13px;
+    white-space: nowrap;
+    color: var(--text-accent);
+}
+
+#status-text {
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex: 1;
+    min-width: 100px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Кнопки */
+.top-btn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.2s;
+    outline: none;
+}
+.top-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(30%); }
+.top-btn:active:not(:disabled) { transform: scale(0.96); }
+
+.btn-connect { background: var(--btn-connect); color: #fff; }
+.btn-connect:hover:not(:disabled) { background: var(--btn-connect-hover); }
+.btn-disconnect { background: var(--btn-disconnect); color: #fff; }
+.btn-disconnect:hover:not(:disabled) { background: var(--btn-disconnect-hover); }
+.btn-settings { background: var(--btn-settings); color: #fff; }
+.btn-settings:hover:not(:disabled) { background: var(--btn-settings-hover); }
+
+.btn-center {
+    background: #6c757d;
+    color: #fff;
+    font-size: 14px;
+    padding: 5px 10px;
+    transition: all 0.2s;
+}
+.btn-center.active {
+    background: #ffc107;
+    color: #000;
+    box-shadow: 0 0 8px rgba(255,193,7,0.6);
+}
+.btn-center:hover { background: #5a6268; }
+.btn-center.active:hover { background: #ffb300; }
+
+/* Выпадающее меню */
+.dropdown-menu {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.dropdown-item {
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.dropdown-item:hover { background: var(--bg-tertiary); }
+
+/* Карта */
+#map-container {
+    flex: 1;
+    position: relative;
+    background: var(--bg-primary);
+    overflow: hidden;
+}
+
+#map-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+}
+#map-canvas:active { cursor: grabbing; }
+
+/* Инфо GNSS */
+#gnss-info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--bg-overlay);
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;      
+    line-height: 1.8;
+    z-index: 10;
+    pointer-events: none;
+    border: 1px solid var(--border-primary);
+    backdrop-filter: blur(8px);
+    min-width: 170px;
+}
+#gnss-info .gi-label { color: var(--text-secondary); }
+#gnss-info .gi-value { color: var(--text-accent); font-weight: 700; }
+
+#gi-hdg {  
+    color: #ff6666 !important;
+    font-weight: 700 !important;
+}
+
+/* Шкала */
+#scale-bar {
+    position: absolute;
+    bottom: 12px;
+    right: 16px;
+    color: var(--scale-color);
+    font-size: 11px;
+    text-shadow: 0 0 4px rgba(0,0,0,0.8);
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* Панель статистики */
+#stats-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-top: 2px solid var(--border-primary);
+    flex-shrink: 0;
+    font-size: 12px;        
+    align-items: center;
+}
+
+.stats-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.stats-label { color: var(--text-secondary); }
+.stats-value {
+    color: var(--text-accent);
+    font-weight: 700;
+    font-size: 13px;        /* крупнее */
+}
+
+#st-rate {
+    transition: color 0.5s;
+}
+
+/* Footer */
+.footer {
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-primary);
+    padding: 4px 12px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+/* Модальное окно */
+#settings-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+}
+#settings-overlay.visible { display: flex; }
+
+#settings-modal {
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    width: 380px;
+    max-width: 95vw;
+    box-shadow: var(--shadow);
+}
+
+#settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border-primary);
+}
+#settings-header h3 { color: var(--text-accent); font-size: 14px; }
+#settings-header button {
+    background: none; border: none;
+    font-size: 18px; cursor: pointer;
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+#settings-header button:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+#settings-body { padding: 12px 16px; }
+
+.settings-section { margin-bottom: 12px; }
+.settings-section h4 {
+    color: var(--text-info);
+    font-size: 12px;
+    margin-bottom: 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.settings-row label {
+    width: 80px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: right;
+    flex-shrink: 0;
+}
+
+#settings-footer {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-primary);
+}
+#settings-footer button {
+    padding: 6px 14px;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 11px;
+}
+.btn-apply { background: var(--btn-connect); color: #fff; }
+.btn-apply:hover { background: var(--btn-connect-hover); }
+.btn-close-settings { background: #6c757d; color: #fff; }
+.btn-close-settings:hover { background: #5a6268; }
+
+/* Адаптив */
+@media (max-width: 768px) {
+    #top-bar { padding: 4px 6px; gap: 4px; }
+    .top-btn { padding: 4px 8px; font-size: 10px; }
+    #stats-panel { gap: 4px 10px; font-size: 10px; }
+    #gnss-info { font-size: 11px; padding: 6px 8px; }
+}
