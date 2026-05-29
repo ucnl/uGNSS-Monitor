@@ -49,11 +49,9 @@
                     sendToNative('uart://setbaud?' + encodeURIComponent(portId + '|' + baudRate));
                 }
                 
-                // Сбрасываем стримы для нового подключения
                 this._readable = null;
                 this._writable = null;
                 
-                // Ждём пока лаунчер переоткроет порт
                 return new Promise(resolve => setTimeout(resolve, 300));
             },
             
@@ -82,13 +80,11 @@
         setTimeout(() => document.body.removeChild(iframe), 100);
     }
 
-    // Пул портов
     const ports = [];
     for (let i = 0; i < MAX_PORTS; i++) {
         ports.push(createPort(i));
     }
 
-    // Инициализация по требованию лаунчера
     window._initStub = function(config) {
         if (initialized) return;
         initialized = true;
@@ -96,7 +92,6 @@
         const appName = config?.appName || 'unknown';
         const preferredPort = config?.preferredPort || 0;
         
-        // Для этого приложения начинаем с preferredPort
         portCounter = preferredPort;
         
         console.log('[Stub] Initialized for ' + appName + ' (starting port: ' + preferredPort + ', total: ' + MAX_PORTS + ')');
@@ -115,6 +110,36 @@
         addEventListener: function() {},
         removeEventListener: function() {}
     };
+
+    // ========== Перехват скачивания файлов для Android ==========
+    document.addEventListener('click', function(e) {
+        var link = e.target.closest('a[download]');
+        if (!link || !link.href || !link.href.startsWith('blob:')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        var filename = link.getAttribute('download') || 'file.txt';
+        
+        fetch(link.href)
+            .then(function(response) { return response.blob(); })
+            .then(function(blob) {
+                var reader = new FileReader();
+                reader.onload = function() {
+                    var base64 = reader.result.split(',')[1]; // убираем data:*;base64,
+                    var iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = 'file://save?' + encodeURIComponent(filename + '|' + base64);
+                    document.body.appendChild(iframe);
+                    setTimeout(function() { document.body.removeChild(iframe); }, 100);
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(function(err) {
+                console.log('[Stub] Download error:', err);
+            });
+    }, true);
+    // =============================================================
 
     console.log('[Stub] Universal Web Serial stub loaded (' + MAX_PORTS + ' ports)');
 })();
