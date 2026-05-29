@@ -137,7 +137,7 @@
 						var base64 = reader.result.split(',')[1];
 						var iframe = document.createElement('iframe');
 						iframe.style.display = 'none';
-						iframe.src = 'file://save?' + encodeURIComponent(filename + '|' + base64);
+						iframe.src = 'app://savefile?' + encodeURIComponent(filename + '|' + base64);
 						document.body.appendChild(iframe);
 						setTimeout(function() { document.body.removeChild(iframe); }, 100);
 					};
