@@ -112,33 +112,66 @@
     };
 
     // ========== Перехват скачивания файлов для Android ==========
-    document.addEventListener('click', function(e) {
-        var link = e.target.closest('a[download]');
-        if (!link || !link.href || !link.href.startsWith('blob:')) return;
+    (function() {
+        var originalCreateObjectURL = URL.createObjectURL;
+        var blobUrls = new Map();
         
-        e.preventDefault();
-        e.stopPropagation();
+        URL.createObjectURL = function(blob) {
+            var url = originalCreateObjectURL.call(URL, blob);
+            blobUrls.set(url, blob);
+            console.log('[Stub] Blob URL created: ' + url.substring(0, 40) + '...');
+            return url;
+        };
         
-        var filename = link.getAttribute('download') || 'file.txt';
+        document.addEventListener('click', function(e) {
+            var link = e.target.closest('a[download]');
+            if (!link || !link.href) return;
+            
+            console.log('[Stub] Click on: ' + link.href.substring(0, 50) + '...');
+            
+            if (!link.href.startsWith('blob:')) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            var filename = link.getAttribute('download') || 'file.txt';
+            console.log('[Stub] Intercepting: ' + filename);
+            
+            var blob = blobUrls.get(link.href);
+            
+            if (blob) {
+                console.log('[Stub] Blob found in map, size: ' + blob.size);
+                sendBlobToNative(filename, blob);
+            } else {
+                console.log('[Stub] Blob not in map, fetching...');
+                fetch(link.href)
+                    .then(function(response) { return response.blob(); })
+                    .then(function(blob) {
+                        sendBlobToNative(filename, blob);
+                    })
+                    .catch(function(err) {
+                        console.log('[Stub] Fetch error:', err);
+                    });
+            }
+        }, true);
         
-        fetch(link.href)
-            .then(function(response) { return response.blob(); })
-            .then(function(blob) {
-                var reader = new FileReader();
-                reader.onload = function() {
-                    var base64 = reader.result.split(',')[1]; // убираем data:*;base64,
-                    var iframe = document.createElement('iframe');
-                    iframe.style.display = 'none';
-                    iframe.src = 'file://save?' + encodeURIComponent(filename + '|' + base64);
-                    document.body.appendChild(iframe);
-                    setTimeout(function() { document.body.removeChild(iframe); }, 100);
-                };
-                reader.readAsDataURL(blob);
-            })
-            .catch(function(err) {
-                console.log('[Stub] Download error:', err);
-            });
-    }, true);
+        function sendBlobToNative(filename, blob) {
+            var reader = new FileReader();
+            reader.onload = function() {
+                var base64 = reader.result.split(',')[1];
+                console.log('[Stub] Sending to native: ' + filename + ' (' + base64.length + ' chars)');
+                var iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = 'file://save?' + encodeURIComponent(filename + '|' + base64);
+                document.body.appendChild(iframe);
+                setTimeout(function() { document.body.removeChild(iframe); }, 100);
+            };
+            reader.onerror = function(err) {
+                console.log('[Stub] FileReader error:', err);
+            };
+            reader.readAsDataURL(blob);
+        }
+    })();
     // =============================================================
 
     console.log('[Stub] Universal Web Serial stub loaded (' + MAX_PORTS + ' ports)');
